@@ -1,0 +1,181 @@
+---
+title: 'How To Use Shiki in Next.js with MDX'
+publishedAt: '2024-10-17'
+summary: 'ShikiJS is the most popular code syntax highlighter. But how do you integrate it into your Next.JS project?'
+---
+
+[ShikiJS](https://shiki.style/) is the most popular code syntax highlighter. But how do you integrate it into your Next.JS project?
+
+{/* EXCERPT */}
+
+# Introduction
+
+[ShikiJS](https://shiki.style/) is a powerful code syntax highlighter based on
+TextMate Grammar, which is the same engine that powers VSCode. ShikiJS has been
+used in many popular projects such as [NextJS landing page](https://nextjs.org/),
+and [Vercel](https://vercel.com/). In  this post,
+
+# Why ShikiJS?
+
+There are some existing syntax highlighters that are well supported and powerful
+such as [PrismJS](https://prismjs.com/),
+[HighlightJS](https://highlightjs.org/). However, these are designed to run in
+the browser. ShikiJS takes a different approach called **highlighting ahead of
+time**. Instead of shipping raw code content to the browswer then highlighting
+it, ShikiJS will ship the highlighted code content as HTML to the browswer. This
+is a more efficient approach for static site generators and server-rendering
+like NextJS.
+
+# How to use Shiki in Next with MDX
+
+
+Markdown is a popular format for writing content. It's a markup language like
+HTML, but it provides a more lightweight, simpler set of rules for formatting
+text. Most static sites use Markdown to write content.
+
+[MDX](https://mdxjs.com/) is a superset of Markdown that allows you to use JSX
+inside Markdown. Sometimes you want to include some specific, custom components
+such as charts, code blocks or interactive elements which Markdown does not
+support.
+
+NextJS supports MDX very well. You can use the official `@next/mdx` package to
+render MDX content from local files. With this pattern, it allows you to write
+pages in Markdown or MDX in `/pages` (Page Router) or `/app` (App Router)
+directory just like how you write pages in React.
+
+Another way is to use a third-party package called `next-mdx-remote`. Unlike
+`@next/mdx`, `next-mdx-remote` allows you to render MDX content from remote
+sources such as a CMS or a database, or even from a file system by using
+`node:fs`. If you want to locate all your MDX files in a specific directory, not
+in NextJS directory patterns, `next-mdx-remote` is a good choice. For
+simplicity, I will use `next-mdx-remote` and the App Router pattern in this
+post.
+
+## Set up
+
+NextJS has [a solution](https://vercel.com/templates/next.js/nextjs-portfolio)
+for creating a blog website using App Router and MDX. You can use this template
+to visualize how it works. First, create a new NextJS project with the following
+command:
+
+```sh
+npx create-next-app --example https://github.com/vercel/examples/tree/main/solutions/blog shiki-mdx-next-app
+
+...
+
+Success! Created shiki-mdx-next-app at shiki-mdx-next-app
+Inside that directory, you can run several commands:
+
+  npm run dev
+    Starts the development server.
+
+  npm run build
+    Builds the app for production.
+
+  npm start
+    Runs the built app in production mode.
+
+We suggest that you begin by typing:
+
+  cd shiki-mdx-next-app
+  npm run dev
+```
+
+*You can replace `shiki-mdx-next-app` with your project name.*
+
+This package has already included essential packages and configurations for MDX
+and App Router pattern.
+
+You can run the development server with `npm run dev` and open the browser to
+`http://localhost:3000` to see the result.
+
+## Install ShikiJS and its dependencies
+
+Shiki contains many packages to work and integrate with different frameworks.
+
+- [`shiki`](https://www.npmjs.com/package/shiki) &mdash; Shiki Core Engine
+Package.
+- [`@shikijs/rehype`](https://www.npmjs.com/package/@shikijs/rehype) &mdash;
+Rehype Plugin for Shiki
+- [`@shikijs/transformers`](https://www.npmjs.com/package/@shikijs/transformers)
+&mdash; Common Transformers for Shiki.
+
+Let's install these packages:
+
+```sh
+npm install -D shiki @shikijs/rehype @shikijs/transformers
+```
+
+You did not mistake. Shiki dependencies are suggested to be installed as dev
+dependencies. This is because Shiki will be used in development mode only.
+During runtime, Shiki will not be used therefore, it's not necessary to include
+Shiki in the production build.
+
+## Create a fine-grained Bundle
+
+Shiki comes with a full bundle, which allows you to use all the supported themes
+and languages. However, this bundle can be quite large and unnecessary. However,
+you can create a fine-grained bundle[^1] that explicitly loads themes and
+languages you specify.
+
+Create a `lib` directory in the `/app` directory. Then, create a new file called
+`shiki.ts` with the following content:
+
+```ts title="shiki.ts"
+import { createHighlighterCore } from "shiki/core";
+import { createOnigurumaEngine } from "shiki/engine-oniguruma.mjs";
+import githubDark from "shiki/themes/github-dark.mjs";
+import githubLight from "shiki/themes/github-light.mjs";
+import javascriptLang from "shiki/langs/javascript.mjs";
+import cssLang from "shiki/langs/css.mjs";
+import graphqlLang from "shiki/langs/graphql.mjs";
+import pythonLang from "shiki/langs/python.mjs";
+import shellLang from "shiki/langs/shellscript.mjs";
+import protobufLang from "shiki/langs/protobuf.mjs";
+
+import wasm from "shiki/wasm";
+
+/**
+ * Create a Shiki core highlighter instance, with no languages or themes
+ * bundled. Wasm and each language and theme must be loaded manually.
+ */
+const highlighter = createHighlighterCore({
+  // Specify the themes you want to use. You can include as many as you want.
+  // See https://shiki.style/themes for a list of available themes.
+  themes: [githubDark, githubLight],
+
+  // Specify the languages you want to use. You can include as many
+  // as you want.
+  langs: [
+    javascriptLang,
+    cssLang,
+    graphqlLang,
+    pythonLang,
+    shellLang,
+    protobufLang,
+  ],
+
+  // Default grammar parser. This is reccomended for most use cases. You can
+  // also use your own custom engine.
+  // See https://shiki.style/guide/regex-engines#oniguruma-engine
+  engine: createOnigurumaEngine(wasm),
+});
+
+export default highlighter;
+```
+
+## Use rehype plugins
+
+The way Shiki works is to parse the code string directly and return the HTML
+content. For example:
+
+```js title="something" displayLineNumbers="false" allowCopy="false"
+await highlighter.codeToHtml('console.log("Hello World")', {
+  lang: 'javascript',
+  theme: 'github-dark',
+});
+```
+
+However, it is tedious to manually parse the code string in every code block in
+every MDX file. This is where `@shikijs/rehype` comes in. This plugin will be
+used by `next-mdx-remote` to parse the code string in the MDX file and return the HTML content automatically.
