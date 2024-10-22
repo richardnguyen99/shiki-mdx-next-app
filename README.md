@@ -13,7 +13,7 @@ This is a porfolio site template complete with a blog. Includes:
 
 ## Demo
 
-https://portfolio-blog-starter.vercel.app
+<https://shiki-mdx-next-app.vercel.app/>
 
 ## How to Use
 
@@ -36,7 +36,7 @@ pnpm create next-app --example https://github.com/vercel/examples/tree/main/solu
 Then, run Next.js in development mode:
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 Deploy it to the cloud with [Vercel](https://vercel.com/templates) ([Documentation](https://nextjs.org/docs/app/building-your-application/deploying)).
